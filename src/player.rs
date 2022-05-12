@@ -22,6 +22,7 @@ pub struct Player {
     active: bool,
     speed: f32,
     just_moved: bool,
+    pub exp: usize,
 }
 
 impl Plugin for PlayerPlugin {
@@ -174,6 +175,7 @@ fn spawn_player(mut commands: Commands, ascii: Res<AsciiSheet>) {
             active: true,
             speed: 3.0,
             just_moved: false,
+            exp: 0,
         })
         .insert(EncounterTracker {
             timer: Timer::from_seconds(1.0, true),
