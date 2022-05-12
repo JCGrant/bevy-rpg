@@ -4,7 +4,7 @@ use crate::TILE_SIZE;
 
 pub struct AsciiPlugin;
 
-pub struct AsciiSheet(Handle<TextureAtlas>);
+pub struct AsciiSheet(pub Handle<TextureAtlas>);
 
 impl Plugin for AsciiPlugin {
     fn build(&self, app: &mut App) {
