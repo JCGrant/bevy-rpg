@@ -3,6 +3,7 @@ use bevy_inspector_egui::Inspectable;
 
 use crate::{
     ascii::{spawn_ascii_sprite, AsciiSheet},
+    combat::CombatStats,
     fadeout::create_fadeout,
     tilemap::{EncounterSpawner, TileCollider},
     GameState, TILE_SIZE,
@@ -164,6 +165,7 @@ fn spawn_player(mut commands: Commands, ascii: Res<AsciiSheet>) {
         1,
         Color::rgb(0.3, 0.3, 0.9),
         Vec3::new(2.0 * TILE_SIZE, -2.0 * TILE_SIZE, 900.0),
+        Vec3::splat(1.0),
     );
     commands
         .entity(player)
@@ -175,6 +177,12 @@ fn spawn_player(mut commands: Commands, ascii: Res<AsciiSheet>) {
         })
         .insert(EncounterTracker {
             timer: Timer::from_seconds(1.0, true),
+        })
+        .insert(CombatStats {
+            health: 10,
+            max_health: 10,
+            attack: 2,
+            defence: 1,
         });
 
     let background = spawn_ascii_sprite(
@@ -183,6 +191,7 @@ fn spawn_player(mut commands: Commands, ascii: Res<AsciiSheet>) {
         0,
         Color::rgb(0.5, 0.5, 0.5),
         Vec3::new(0.0, 0.0, -1.0),
+        Vec3::splat(1.0),
     );
     commands.entity(background).insert(Name::new("Background"));
 

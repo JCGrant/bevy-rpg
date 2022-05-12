@@ -23,9 +23,9 @@ pub struct TileCollider;
 
 impl Plugin for TileMapPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_set(SystemSet::on_enter(GameState::Overworld).with_system(show_map))
-            .add_system_set(SystemSet::on_exit(GameState::Overworld).with_system(hide_map))
-            .add_startup_system(create_simple_map);
+        app.add_startup_system(create_simple_map)
+            .add_system_set(SystemSet::on_enter(GameState::Overworld).with_system(show_map))
+            .add_system_set(SystemSet::on_exit(GameState::Overworld).with_system(hide_map));
     }
 }
 
@@ -67,6 +67,7 @@ fn create_simple_map(mut commands: Commands, ascii: Res<AsciiSheet>) {
                     char as usize,
                     Color::rgb(0.9, 0.9, 0.9),
                     Vec3::new(x as f32 * TILE_SIZE, -(y as f32) * TILE_SIZE, 100.0),
+                    Vec3::splat(1.0),
                 );
                 if char == '#' {
                     commands.entity(tile).insert(TileCollider);
