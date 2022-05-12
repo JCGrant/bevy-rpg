@@ -1,12 +1,13 @@
-use bevy::{prelude::*, sprite::collide_aabb::collide};
+use bevy::{prelude::*, render::camera::Camera2d, sprite::collide_aabb::collide};
 use bevy_inspector_egui::Inspectable;
 
 use crate::{
-    ascii::{spawn_ascii_sprite, AsciiSheet},
+    ascii::AsciiSheet,
     combat::CombatStats,
     fadeout::create_fadeout,
+    graphics::{CharacterSheet, FacingDirection, FrameAnimation, PlayerGraphics},
     tilemap::{EncounterSpawner, TileCollider},
-    GameState, MainCamera, TILE_SIZE,
+    GameState, TILE_SIZE,
 };
 
 pub struct PlayerPlugin;
@@ -25,15 +26,30 @@ pub struct Player {
     pub exp: usize,
 }
 
+impl Player {
+    pub fn give_exp(&mut self, exp: usize, stats: &mut CombatStats) -> bool {
+        self.exp += exp;
+        if self.exp >= 50 {
+            stats.health += 2;
+            stats.max_health += 2;
+            stats.attack += 1;
+            stats.defence += 1;
+            self.exp -= 50;
+            return true;
+        }
+        false
+    }
+}
+
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_system_set(SystemSet::on_resume(GameState::Overworld).with_system(show_player))
             .add_system_set(SystemSet::on_pause(GameState::Overworld).with_system(hide_player))
             .add_system_set(
                 SystemSet::on_update(GameState::Overworld)
-                    .with_system(player_movement.label("movement"))
-                    .with_system(camera_follow.after("movement"))
-                    .with_system(player_encounter_checking.after("movement")),
+                    .with_system(player_encounter_checking.after(player_movement))
+                    .with_system(camera_follow.after(player_movement))
+                    .with_system(player_movement),
             )
             .add_system_set(SystemSet::on_enter(GameState::Overworld).with_system(spawn_player));
     }
@@ -96,7 +112,7 @@ fn player_encounter_checking(
 
 fn camera_follow(
     player_query: Query<&Transform, With<Player>>,
-    mut camera_query: Query<&mut Transform, (Without<Player>, With<MainCamera>)>,
+    mut camera_query: Query<&mut Transform, (Without<Player>, With<Camera2d>)>,
 ) {
     let player_transform = player_query.single();
     let mut camera_transform = camera_query.single_mut();
@@ -104,12 +120,12 @@ fn camera_follow(
 }
 
 fn player_movement(
-    mut player_query: Query<(&mut Player, &mut Transform)>,
+    mut player_query: Query<(&mut Player, &mut Transform, &mut PlayerGraphics)>,
     wall_query: Query<&Transform, (With<TileCollider>, Without<Player>)>,
     keyboard: Res<Input<KeyCode>>,
     time: Res<Time>,
 ) {
-    let (mut player, mut transform) = player_query.single_mut();
+    let (mut player, mut transform, mut graphics) = player_query.single_mut();
     player.just_moved = false;
     if !player.active {
         return;
@@ -131,14 +147,6 @@ fn player_movement(
     if velocity == Vec2::ZERO {
         return;
     }
-    let target = transform.translation + Vec3::new(velocity.x, 0.0, 0.0);
-    if !wall_query
-        .iter()
-        .any(|&transform| tile_collision_check(target, transform.translation))
-    {
-        transform.translation = target;
-        player.just_moved = true;
-    }
     let target = transform.translation + Vec3::new(0.0, velocity.y, 0.0);
     if !wall_query
         .iter()
@@ -146,6 +154,28 @@ fn player_movement(
     {
         transform.translation = target;
         player.just_moved = true;
+        if velocity.y != 0.0 {
+            if velocity.y > 0.0 {
+                graphics.facing = FacingDirection::Up;
+            } else {
+                graphics.facing = FacingDirection::Down;
+            }
+        }
+    }
+    let target = transform.translation + Vec3::new(velocity.x, 0.0, 0.0);
+    if !wall_query
+        .iter()
+        .any(|&transform| tile_collision_check(target, transform.translation))
+    {
+        transform.translation = target;
+        player.just_moved = true;
+        if velocity.x != 0.0 {
+            if velocity.x > 0.0 {
+                graphics.facing = FacingDirection::Right;
+            } else {
+                graphics.facing = FacingDirection::Left;
+            }
+        }
     }
 }
 
@@ -159,21 +189,30 @@ fn tile_collision_check(target_player_pos: Vec3, tile_pos: Vec3) -> bool {
     .is_some()
 }
 
-fn spawn_player(mut commands: Commands, ascii: Res<AsciiSheet>) {
-    let player = spawn_ascii_sprite(
-        &mut commands,
-        &ascii,
-        1,
-        Color::rgb(0.3, 0.3, 0.9),
-        Vec3::new(2.0 * TILE_SIZE, -2.0 * TILE_SIZE, 900.0),
-        Vec3::splat(1.0),
-    );
+fn spawn_player(mut commands: Commands, characters: Res<CharacterSheet>) {
     commands
-        .entity(player)
+        .spawn_bundle(SpriteSheetBundle {
+            sprite: TextureAtlasSprite {
+                index: characters.player_down[0],
+                custom_size: Some(Vec2::splat(TILE_SIZE)),
+                ..default()
+            },
+            transform: Transform::from_xyz(2.0 * TILE_SIZE, -2.0 * TILE_SIZE, 900.0),
+            texture_atlas: characters.handle.clone(),
+            ..default()
+        })
+        .insert(FrameAnimation {
+            timer: Timer::from_seconds(0.2, true),
+            frames: characters.player_down.to_vec(),
+            current_frame: 0,
+        })
+        .insert(PlayerGraphics {
+            facing: FacingDirection::Down,
+        })
         .insert(Name::new("Player"))
         .insert(Player {
-            active: true,
             speed: 3.0,
+            active: true,
             just_moved: false,
             exp: 0,
         })
@@ -186,16 +225,4 @@ fn spawn_player(mut commands: Commands, ascii: Res<AsciiSheet>) {
             attack: 2,
             defence: 1,
         });
-
-    let background = spawn_ascii_sprite(
-        &mut commands,
-        &ascii,
-        0,
-        Color::rgb(0.5, 0.5, 0.5),
-        Vec3::new(0.0, 0.0, -1.0),
-        Vec3::splat(1.0),
-    );
-    commands.entity(background).insert(Name::new("Background"));
-
-    commands.entity(player).push_children(&[background]);
 }
