@@ -6,7 +6,7 @@ use crate::{
     fadeout::create_fadeout,
     graphics::{spawn_bat_sprite, CharacterSheet},
     player::Player,
-    GameState, RESOLUTION, TILE_SIZE,
+    GameState, MainCamera, RESOLUTION, TILE_SIZE,
 };
 
 #[derive(Component, Inspectable)]
@@ -105,9 +105,11 @@ fn handle_accepting_reward(
     mut commands: Commands,
     ascii: Res<AsciiSheet>,
     keyboard: Res<Input<KeyCode>>,
+    mut combat_state: ResMut<State<CombatState>>,
 ) {
     if keyboard.just_pressed(KeyCode::Space) {
-        create_fadeout(&mut commands, GameState::Overworld, &ascii);
+        combat_state.set(CombatState::Exiting).unwrap();
+        create_fadeout(&mut commands, None, &ascii);
     }
 }
 
@@ -390,7 +392,7 @@ fn combat_input(
                 next_state: CombatState::PlayerAttack,
             }),
             CombatMenuOption::Run => {
-                create_fadeout(&mut commands, GameState::Overworld, &ascii);
+                create_fadeout(&mut commands, None, &ascii);
                 combat_state.set(CombatState::Exiting).unwrap()
             }
         }
@@ -398,7 +400,7 @@ fn combat_input(
 }
 
 fn combat_camera(
-    mut camera_query: Query<&mut Transform, With<Camera>>,
+    mut camera_query: Query<&mut Transform, With<MainCamera>>,
     attack_fx: Res<AttackEffects>,
 ) {
     let mut camera_transform = camera_query.single_mut();

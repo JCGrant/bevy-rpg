@@ -6,7 +6,7 @@ use crate::{
     combat::CombatStats,
     fadeout::create_fadeout,
     tilemap::{EncounterSpawner, TileCollider},
-    GameState, TILE_SIZE,
+    GameState, MainCamera, TILE_SIZE,
 };
 
 pub struct PlayerPlugin;
@@ -19,7 +19,7 @@ pub struct EncounterTracker {
 
 #[derive(Component, Inspectable)]
 pub struct Player {
-    active: bool,
+    pub active: bool,
     speed: f32,
     just_moved: bool,
     pub exp: usize,
@@ -27,15 +27,15 @@ pub struct Player {
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_set(SystemSet::on_enter(GameState::Overworld).with_system(show_player))
-            .add_system_set(SystemSet::on_exit(GameState::Overworld).with_system(hide_player))
+        app.add_system_set(SystemSet::on_resume(GameState::Overworld).with_system(show_player))
+            .add_system_set(SystemSet::on_pause(GameState::Overworld).with_system(hide_player))
             .add_system_set(
                 SystemSet::on_update(GameState::Overworld)
                     .with_system(player_movement.label("movement"))
                     .with_system(camera_follow.after("movement"))
                     .with_system(player_encounter_checking.after("movement")),
             )
-            .add_startup_system(spawn_player);
+            .add_system_set(SystemSet::on_enter(GameState::Overworld).with_system(spawn_player));
     }
 }
 
@@ -89,14 +89,14 @@ fn player_encounter_checking(
         encounter_tracker.timer.tick(time.delta());
         if encounter_tracker.timer.just_finished() {
             player.active = false;
-            create_fadeout(&mut commands, GameState::Combat, &ascii);
+            create_fadeout(&mut commands, Some(GameState::Combat), &ascii);
         }
     }
 }
 
 fn camera_follow(
     player_query: Query<&Transform, With<Player>>,
-    mut camera_query: Query<&mut Transform, (Without<Player>, With<Camera>)>,
+    mut camera_query: Query<&mut Transform, (Without<Player>, With<MainCamera>)>,
 ) {
     let player_transform = player_query.single();
     let mut camera_transform = camera_query.single_mut();
