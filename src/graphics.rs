@@ -28,6 +28,7 @@ pub struct PlayerGraphics {
 
 #[derive(Component)]
 pub struct FrameAnimation {
+    pub active: bool,
     pub timer: Timer,
     pub frames: Vec<usize>,
     pub current_frame: usize,
@@ -54,11 +55,13 @@ pub fn spawn_enemy_sprite(
     sprite.custom_size = Some(Vec2::splat(0.5));
     let animation = match enemy_type {
         EnemyType::Bat => FrameAnimation {
+            active: true,
             timer: Timer::from_seconds(0.2, true),
             frames: characters.bat_frames.to_vec(),
             current_frame: 0,
         },
         EnemyType::Ghost => FrameAnimation {
+            active: true,
             timer: Timer::from_seconds(0.2, true),
             frames: characters.ghost_frames.to_vec(),
             current_frame: 0,
@@ -122,6 +125,10 @@ impl GraphicsPlugin {
         time: Res<Time>,
     ) {
         for (mut sprite, mut animation) in sprites_query.iter_mut() {
+            if !animation.active {
+                sprite.index = animation.frames[1]; // Idle frame
+                continue;
+            }
             animation.timer.tick(time.delta());
             if animation.timer.just_finished() {
                 animation.current_frame = (animation.current_frame + 1) % animation.frames.len();

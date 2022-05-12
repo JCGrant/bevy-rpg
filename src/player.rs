@@ -120,12 +120,17 @@ fn camera_follow(
 }
 
 fn player_movement(
-    mut player_query: Query<(&mut Player, &mut Transform, &mut PlayerGraphics)>,
+    mut player_query: Query<(
+        &mut Player,
+        &mut Transform,
+        &mut PlayerGraphics,
+        &mut FrameAnimation,
+    )>,
     wall_query: Query<&Transform, (With<TileCollider>, Without<Player>)>,
     keyboard: Res<Input<KeyCode>>,
     time: Res<Time>,
 ) {
-    let (mut player, mut transform, mut graphics) = player_query.single_mut();
+    let (mut player, mut transform, mut graphics, mut animation) = player_query.single_mut();
     player.just_moved = false;
     if !player.active {
         return;
@@ -145,15 +150,17 @@ fn player_movement(
         velocity.x += speed;
     }
     if velocity == Vec2::ZERO {
+        animation.active = false;
         return;
     }
+    animation.active = true;
+    player.just_moved = true;
     let target = transform.translation + Vec3::new(0.0, velocity.y, 0.0);
     if !wall_query
         .iter()
         .any(|&transform| tile_collision_check(target, transform.translation))
     {
         transform.translation = target;
-        player.just_moved = true;
         if velocity.y != 0.0 {
             if velocity.y > 0.0 {
                 graphics.facing = FacingDirection::Up;
@@ -168,7 +175,6 @@ fn player_movement(
         .any(|&transform| tile_collision_check(target, transform.translation))
     {
         transform.translation = target;
-        player.just_moved = true;
         if velocity.x != 0.0 {
             if velocity.x > 0.0 {
                 graphics.facing = FacingDirection::Right;
@@ -202,6 +208,7 @@ fn spawn_player(mut commands: Commands, characters: Res<CharacterSheet>) {
             ..default()
         })
         .insert(FrameAnimation {
+            active: false,
             timer: Timer::from_seconds(0.2, true),
             frames: characters.player_down.to_vec(),
             current_frame: 0,
